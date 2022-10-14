@@ -269,15 +269,19 @@ class HelloWorld(Resource):
         age0_17 = gpd.read_file(definition_ages[0])
         gdf = create_geojson_file(definition_properties, definition_sheets, age0_17, definition_finalNames,
                                   function_converters)
-        gdf.to_file("data2.geojson", driver='GeoJSON', engine='pyogrio', encoding='utf-8')
-        return gdf.to_json()
+        test = gdf.to_json()
+        test = test.replace('NaN', 'null')
+        f = open('data2.geojson', 'w')
+        f.write(test)
+        # gdf.to_file("data2.geojson", driver='GeoJSON', engine='fiona', encoding='utf-8')
+        return test
 
     @staticmethod
     def post():
-        return gpd.read_file('data2.geojson', engine='pyogrio', encoding='utf-8').to_json()
+        return gpd.read_file('data2.geojson', engine='fiona', encoding='utf-8').to_json()
 
 
 api.add_resource(HelloWorld, "/helloworld")
 if __name__ == "__main__":
-    # print(gpd.read_file("data2.geojson", engine='pyogrio', encoding='utf-8'))
+    # print(gpd.read_file("data2.geojson", engine='fiona', encoding='utf-8'))
     app.run(debug=True)

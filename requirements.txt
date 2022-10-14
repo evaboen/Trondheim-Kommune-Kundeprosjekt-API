@@ -1,4 +1,3 @@
-pyogrio
 pandas
 geopandas
 Flask
