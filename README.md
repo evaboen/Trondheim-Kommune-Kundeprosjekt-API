@@ -17,7 +17,7 @@ https://www.pythonanywhere.com/?affiliate_id=00535ced
 2. Check if pip is installed: ``pip --version``
 3. Configure your PATH
 4. Clone this repository: ``git clone https://github.com/AdamSioud/Trondheim-Kommune-Kundeprosjekt-API.git``
-5. In the parent folder of the repository, create a new environment: ``python3 -m venv /venv``
+5. In the parent folder of the repository, create a new environment: ``python -m venv /venv``
 6. Activate the environment: ``.\venv\Scripts\activate``
 7. Upgrade pip and install wheel: ``python -m pip install -U pip wheel setuptools``
 8. In ``venv`` create a new folder: `geopandas dependencies`

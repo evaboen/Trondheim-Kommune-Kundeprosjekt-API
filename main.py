@@ -1,15 +1,10 @@
-from flask import Flask
-from flask_restful import Api, Resource
-from flask_cors import CORS, cross_origin
-
-import pandas as pd
 import geopandas as gpd
-import folium
-import matplotlib
-import mapclassify
-import math
+import pandas as pd
+from flask import Flask
+from flask_cors import CORS
+from flask_restful import Api, Resource
 
-ages = [
+definition_ages = [
     "https://kart.trondheim.kommune.no/levekar2020/personer0_17/2018.js",  # 8.5
     "https://kart.trondheim.kommune.no/levekar2020/personer18_34/2018.js",  # 26
     "https://kart.trondheim.kommune.no/levekar2020/personer35_66/2018.js",  # 50.5
@@ -17,9 +12,9 @@ ages = [
 ]
 
 # Instead use this we should maybe use "columnName" property of sheets
-finalNames = ["Andel", "Antall", "Gjennomsnittspris"]  # , 'Konfidensintervall']
+definition_finalNames = ["Andel", "Antall", "Gjennomsnittspris"]  # , 'Konfidensintervall']
 
-properties = {
+definition_properties = {
     "Levekårsone-nummer": [],
     "Levekårsnavn": [],
     "Ages": [],
@@ -30,13 +25,13 @@ properties = {
 
 # Values for distribution : quantity | proportion | average | median | quintiles
 
-BEFOLKNING = "120UjUkUfX5is20D_SX3z99vfuCHOVuN8RI1yE3-L4OM"
-BOLIGOGNÆRMILJØ = "1pU_p7FToI3VerocJXSp1-zMtWNk9SsKL_Tv7nImiXF8"
-NÆRMILJØ = '1s51rcfCGPpjc1hx-6B7IqC6IfBjgSR2JAwOsW9ykI3U'
+POPULATION = "120UjUkUfX5is20D_SX3z99vfuCHOVuN8RI1yE3-L4OM"
+ESIDENTIALENVIRONMENT = "1pU_p7FToI3VerocJXSp1-zMtWNk9SsKL_Tv7nImiXF8"
+NEARENVIRONMENT = '1s51rcfCGPpjc1hx-6B7IqC6IfBjgSR2JAwOsW9ykI3U'
 
-sheets = {
+definition_sheets = {
     "Ages": {
-        "key": BEFOLKNING,
+        "key": POPULATION,
         "values": {
             "underage (0-17)": "1-10",
             "young adult (18-34)": "1-40",
@@ -49,7 +44,7 @@ sheets = {
         "columnName": "Andel"
     },
     "Price": {
-        "key": BOLIGOGNÆRMILJØ,
+        "key": ESIDENTIALENVIRONMENT,
         "values": {
             "small": "2-220",
             "medium": "2-240",
@@ -61,7 +56,7 @@ sheets = {
         "columnName": "Gjennomsnittspris"
     },
     "Nærmiljø": {
-        "key": NÆRMILJØ,
+        "key": NEARENVIRONMENT,
         "values": {
             "trivsel-kvinner": "10-10",
             "trivsel-menn": "10-20",
@@ -73,8 +68,6 @@ sheets = {
             "tilgjengelighet friluftsområder-menn": "10-100",
             "tilgjengelighet offentlig transport-kvinner": "10-110",
             "tilgjengelighet offentlig transport-menn": "10-120",
-            "tilgjengelighet friluftsområder-kvinner": "10-90",
-            "tilgjengelighet friluftsområder-menn": "10-100",
             "tilgjengelighet butikker-kvinner": "10-130",
             "tilgjengelighet butiker-menn": "10-140",
             "tilgjengelighet gang og sykkelvei-kvinner": "10-150",
@@ -92,7 +85,7 @@ sheets = {
     },
 }
 
-converters = {
+function_converters = {
     'Andel': lambda s: percent_to_float(s),
     'Gjennomsnittspris': lambda s: string_to_int(s)
 }
@@ -106,17 +99,18 @@ def percent_to_float(s: str) -> float:
     return round(float(s) / 100, 2)
 
 
-def string_to_int(s: str) -> int:
+def string_to_int(s: str) -> None | int:
     res = s.replace("\xa0", '')
-    if not res.isdigit(): return None
+    if not res.isdigit():
+        return None
     return int(res)
 
 
-def data_from_sheet(key: str, sheet: str, startColumn: chr, startLine: int, endColumn: chr, endLine: int,
+def data_from_sheet(key: str, sheet: str, start_column: chr, start_line: int, end_column: chr, end_line: int,
                     names: list = None, converters: dict = None) -> pd.DataFrame:
     df = pd.read_csv('https://docs.google.com/spreadsheets/d/' +
                      key +
-                     '/gviz/tq?tqx=out:csv&range=' + startColumn + str(startLine) + ':' + endColumn + str(endLine) +
+                     '/gviz/tq?tqx=out:csv&range=' + start_column + str(start_line) + ':' + end_column + str(end_line) +
                      '&sheet=' +
                      sheet,
                      names=names,
@@ -126,8 +120,8 @@ def data_from_sheet(key: str, sheet: str, startColumn: chr, startLine: int, endC
     return df
 
 
-def add_properties(properties: dict, dataframe: pd.DataFrame, subject: str, subSubject: str,
-                   finalNames: list = []) -> dict:
+def add_properties(properties: dict, dataframe: pd.DataFrame, subject: str, sub_subject: str,
+                   final_names=None) -> dict:
     """Add data from DataFrame to the argument `properties`, e.g.: properties.subject.subSubject
 
     A `properties` dictionary like this:
@@ -177,9 +171,9 @@ def add_properties(properties: dict, dataframe: pd.DataFrame, subject: str, subS
             Data to add to the `properties` dictionary
         subject : str
             Subject used as name of column (e.g. Befolkning)
-        subSubject : str
+        sub_subject : str
             Subsbuject used to categorize subjects within a larger
-        finalNames : list
+        final_names : list
             The final data to keep
 
     Return
@@ -187,23 +181,25 @@ def add_properties(properties: dict, dataframe: pd.DataFrame, subject: str, subS
         A Dictionary fill with data
     """
 
+    if final_names is None:
+        final_names = []
     for columnName in dataframe:
         if columnName in properties.keys():
             if len(properties[columnName]) == 0: properties[columnName] = dataframe[columnName].to_list()
-        elif len(finalNames) == 0 or columnName in finalNames:
+        elif len(final_names) == 0 or columnName in final_names:
             values = dataframe[columnName].to_list()
             for i in range(len(values)):
                 if len(properties[subject]) <= i:
-                    properties[subject].append({subSubject: {columnName: values[i]}})
-                elif subSubject not in properties[subject][i].keys():
-                    properties[subject][i][subSubject] = {columnName: values[i]}
+                    properties[subject].append({sub_subject: {columnName: values[i]}})
+                elif sub_subject not in properties[subject][i].keys():
+                    properties[subject][i][sub_subject] = {columnName: values[i]}
                 else:
-                    properties[subject][i][subSubject][columnName] = values[i]
+                    properties[subject][i][sub_subject][columnName] = values[i]
     return properties
 
 
-def add_geometry_column(properties: dict, geodataframe: gpd.GeoDataFrame, idProperty: str = "Levekårsnavn",
-                        idGeo: str = "levekårsone") -> dict:
+def add_geometry_column(properties: dict, geodataframe: gpd.GeoDataFrame, id_property: str = "Levekårsnavn",
+                        id_geo: str = "levekårsone") -> dict:
     """Add data to `geometry` column
 
     Fill the `geometry` column of the `properties` dictionary with the geometry data of `geodataframe`.
@@ -237,27 +233,27 @@ def add_geometry_column(properties: dict, geodataframe: gpd.GeoDataFrame, idProp
             Dictionary used for generate the GeoDataFrame, it contains all data and the `geometry` column
         geodataframe : geopandas.GeoDataFrame
             GeoDataFrame with all data for the `geometry` column
-        idProperty : str, optional
+        id_property : str, optional
             The id column used in the `properties` dictionary
-        idGeo : str, optional
+        id_geo : str, optional
             The id column used in the GeoDataFrame object
     Return
         ---------
         A Dictionary fill with geometry data
     """
-    for name in properties[idProperty]:
-        for j in range(len(geodataframe[idGeo])):
-            if name == geodataframe[idGeo][j]:
+    for name in properties[id_property]:
+        for j in range(len(geodataframe[id_geo])):
+            if name == geodataframe[id_geo][j]:
                 properties["geometry"].append(geodataframe["geometry"][j])
     return properties
 
 
-def create_geojson_file(properties: dict, sheets: dict, geodataframe: gpd.GeoDataFrame, finalNames: list[str],
+def create_geojson_file(properties: dict, sheets: dict, geodataframe: gpd.GeoDataFrame, final_names: list[str],
                         converters: dict) -> gpd.GeoDataFrame:
     for subject in sheets.keys():
         for subSubject, page in sheets[subject]["values"].items():
             dataframe = data_from_sheet(sheets[subject]["key"], page, 'A', 9, 'G', 69, converters=converters)
-            properties = add_properties(properties, dataframe, subject, subSubject, finalNames)
+            properties = add_properties(properties, dataframe, subject, subSubject, final_names)
     properties = add_geometry_column(properties, geodataframe)
     return gpd.GeoDataFrame(properties, crs="urn:ogc:def:crs:OGC:1.3:CRS84")
 
@@ -268,17 +264,20 @@ CORS(app)
 
 
 class HelloWorld(Resource):
-    def get(self):
-        age0_17 = gpd.read_file(ages[0])
-        gdf = create_geojson_file(properties, sheets, age0_17, finalNames, converters)
-        gdf.to_file("data2.geojson", driver='GeoJSON')
+    @staticmethod
+    def get():
+        age0_17 = gpd.read_file(definition_ages[0])
+        gdf = create_geojson_file(definition_properties, definition_sheets, age0_17, definition_finalNames,
+                                  function_converters)
+        gdf.to_file("data2.geojson", driver='GeoJSON', engine='pyogrio', encoding='utf-8')
         return gdf.to_json()
 
-    def post(self):
-        return gpd.read_file('data2.geojson').to_json()
+    @staticmethod
+    def post():
+        return gpd.read_file('data2.geojson', engine='pyogrio', encoding='utf-8').to_json()
 
 
 api.add_resource(HelloWorld, "/helloworld")
 if __name__ == "__main__":
-    print(gpd.read_file("data2.geojson"))
+    # print(gpd.read_file("data2.geojson", engine='pyogrio', encoding='utf-8'))
     app.run(debug=True)
