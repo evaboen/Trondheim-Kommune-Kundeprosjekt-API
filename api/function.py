@@ -1,12 +1,5 @@
 import geopandas as gpd
 import pandas as pd
-from flask import Flask
-from flask_cors import CORS
-from flask_restful import Api, Resource
-from flask_restful import reqparse
-
-
-## DEEPNOTE
 
 definition_ages = [
     "https://kart.trondheim.kommune.no/levekar2020/personer0_17/2018.js",  # 8.5
@@ -185,6 +178,8 @@ def add_properties(properties: dict, dataframe: pd.DataFrame, subject: str, sub_
         A Dictionary fill with data
     """
 
+    
+    
     if final_names is None:
         final_names = []
     for columnName in dataframe:
@@ -260,62 +255,3 @@ def create_geojson_file(properties: dict, sheets: dict, geodataframe: gpd.GeoDat
             properties = add_properties(properties, dataframe, subject, subSubject, final_names)
     properties = add_geometry_column(properties, geodataframe)
     return gpd.GeoDataFrame(properties, crs="urn:ogc:def:crs:OGC:1.3:CRS84")
-
-
-## END DEEPNOTE
-
-app = Flask(__name__)
-api = Api(app)
-CORS(app)
-
-
-class HelloWorld(Resource):
-    @staticmethod
-    def get():
-        age0_17 = gpd.read_file(definition_ages[0])
-        gdf = create_geojson_file(definition_properties, definition_sheets, age0_17, definition_finalNames,
-                                  function_converters)
-        test = gdf.to_json()
-        test = test.replace('NaN', 'null')
-        f = open('data2.geojson', 'w')
-        f.write(test)
-        # gdf.to_file("data2.geojson", driver='GeoJSON', engine='fiona', encoding='utf-8')
-        return test
-
-    @staticmethod
-    def post():
-        return gpd.read_file('data2.geojson', engine='fiona', encoding='utf-8').to_json()
-
-class HelloWorld2(Resource):
-    @staticmethod
-    def post():
-        parser = reqparse.RequestParser()
-        parser.add_argument('Ages', type=int, help='Avarehe age of the people')
-        parser.add_argument('Prices', type=int, help='Prices in the area')
-        parser.add_argument('Nærmiljø', type=int, help='Nærmiljø')
-        args = parser.parse_args()
-
-
-        age0_17 = gpd.read_file(definition_ages[0])
-        gdf = create_geojson_file(definition_properties, definition_sheets, age0_17, definition_finalNames,
-                                  function_converters)
-        test = gdf.to_json()
-        test = test.replace('NaN', 'null')
-        f = open('data2.geojson', 'w')
-        f.write(test)
-        # gdf.to_file("data2.geojson", driver='GeoJSON', engine='fiona', encoding='utf-8')
-        return test
-
-    @staticmethod
-    def post():
-        return gpd.read_file('data2.geojson', engine='fiona', encoding='utf-8').to_json()
-
-
-
-
-api.add_resource(HelloWorld, "/helloworld")
-api.add_resource(HelloWorld2, "/helloworld2")
-
-if __name__ == "__main__":
-    # print(gpd.read_file("data2.geojson", engine='fiona', encoding='utf-8'))
-    app.run(debug=True)
