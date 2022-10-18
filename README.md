@@ -36,7 +36,7 @@ I followed the instructions [here](https://towardsdatascience.com/geopandas-inst
 2. Check if pip is installed: ``pip --version``
 3. Clone this repository: ``git clone https://github.com/AdamSioud/Trondheim-Kommune-Kundeprosjekt-API.git``
 4. In the parent folder of the repository, create a new environment: ``python -m venv ./venv``
-5. Activate the environment: ``./venv/Scripts/activate``
+5. Activate the environment: ``./venv/bin/activate``
 6. Upgrade pip and install wheel: ``python -m pip install -U pip wheel setuptools``
 7. Install GDAL: ``brew install gdal``
 8. Search for file ``Python.h`` (probably here: ``/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.8/Headers``)
